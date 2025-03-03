@@ -1,4 +1,5 @@
 import ee
+import ee.data
 import folium
 from ee_lst.landsat_lst import fetch_landsat_collection
 import altair as alt
@@ -57,63 +58,83 @@ def show_map(self, map_data, map_name, type = 'LST'):
     # Display the map
     map_render.save(map_name + '.html')
 
-def create_lst_image(year,month_list,folder_name,to_drive = True):
+def create_lst_image(city_name,data_range,city_geometry,urban_geometry,folder_name,to_drive = True):
     # Define parameters
-    boundary = ee.FeatureCollection('projects/ee-channingtong/assets/YZBboundary')
-    geometry = boundary.union().geometry()
-    YZB_area = geometry.area().getInfo()
-    print("Area of YZB: ", YZB_area)
-    satellite = "L8"
-    date_start = str(year) + "-01-01"
-    date_end = str(year+1) + "-01-01"
+    satellite_list = ["L4", "L5", "L7", "L8"]
     use_ndvi = True
-    cloud_threshold = 20
-
-    try:
-        landsat_coll = fetch_landsat_collection(
-        satellite, date_start, date_end, geometry, cloud_threshold, use_ndvi
+    cloud_threshold = 10
+   
+    landsat_coll = []
+    for satellite in satellite_list:
+        landsat_coll_sat = fetch_landsat_collection(
+        satellite, data_range, city_geometry, cloud_threshold, urban_geometry, use_ndvi
         )
-    except ValueError as e:
-        print(e)
+        landsat_coll.merge(landsat_coll_sat)
+    
+    image_num = landsat_coll.size().getInfo()
+    if image_num == 0:
+        print("No Landsat data found")
+        return None
+    
+    print("total num of the month : ", image_num)
 
-    for month in month_list:
-        current_month = landsat_coll.filter(ee.Filter.calendarRange(month, month, 'month'))
-        image_num = current_month.size().getInfo()
-        print("total num of the month", str(month), ':', current_month.size().getInfo())
-        if (image_num == 0):
-            continue
-        # 先选择所有波段，然后排除 TIMESTAMP
-        month_average = current_month.select('LST').mean().clip(geometry)
-        
-        #if (month_average.bounds().area().getInfo() < 0.9 * YZB_area):
-        #    continue
+    month_average = landsat_coll.select('LST').mean().clip(city_geometry)
 
-        image_data = {
-            'geometry': geometry,
-            'image': month_average
-        }
-        map_name = "landsat-" + str(year) + '-' + str(month)
-        task = None
-        if to_drive:
-            task = ee.batch.Export.image.toDrive(image=month_average,
-                                        description=map_name,
-                                        folder=f'{folder_name}',
-                                        scale=30,
-                                        crs='EPSG:4326',
-                                        region=geometry,
-                                        fileFormat='GeoTIFF',
-                                        maxPixels=1e13)
-            task.start()
-        else:
-            show_map(None, image_data, map_name,'LST')
-        return task
-
+    image_data = {
+        'geometry': city_geometry,
+        'image': month_average
+    }
+    map_name = f'landsat_{city_name}_{date_start}_{date_end}'
+    task = None
+    if to_drive:
+        task = ee.batch.Export.image.toDrive(image=month_average,
+                                    description=map_name,
+                                    folder=f'{folder_name}',
+                                    scale=30,
+                                    crs='EPSG:4326',
+                                    region=city_geometry,
+                                    fileFormat='GeoTIFF',
+                                    maxPixels=1e13)
+        task.start()
+    else:
+        show_map(None, image_data, map_name,'LST')
+    return task
+    
+def create_lst_image_timeseries(folder_name,to_drive = True):
+    asset_path = 'projects/ee-channingtong/assets/'
+    total_boundary = ee.FeatureCollection(asset_path + 'YZBboundary')
+    total_geometry = total_boundary.union().geometry()
+    total_area = total_geometry.area().getInfo()
+    print("Area of YZB: ", total_area) 
+    index = 0
+    for city_boundary in total_boundary.getInfo()['features']:
+        city_code = city_boundary['properties']['市代码']
+        city_geometry = city_boundary['geometry']
+        asset_name = f'urban_{city_code}'
+        urban_boundary = ee.FeatureCollection(asset_path + asset_name)
+        urban_geometry = urban_boundary.union().geometry()
+        city_name = urban_boundary.getInfo()['features'][0]['properties']['city_name']
+        urban_area = urban_geometry.area().getInfo()
+        print("Area of ", city_name, ": ", urban_area)
+        year_list = range(1984,2024)
+        year_list = [2022] # for test
+        for year in year_list:
+            month_list = range(1,13)
+            month_list = [10] # for test
+            for month in month_list:
+                date_start = f'{year}-{month}-01'
+                date_end = f'{year}-{month}-31'
+                data_range = ee.DateRange(date_start, date_end)
+                print("Processing ", date_start, 'to', date_end)
+                create_lst_image(city_name,data_range,city_geometry,urban_geometry,folder_name,to_drive)
+                index += 1
+    print("Total number of images: ", index)
+    if (index > 1):
+        return # for test
 def __main__():
     ee.Initialize(project='ee-channingtong')
-    year = 2022
-    month_list = [10] # for test
     folder_name = 'landsat_lst_timeseries'
-    create_lst_image(year,month_list,folder_name,False)
+    create_lst_image_timeseries(folder_name,False)
 
 if __name__ == '__main__':
     __main__()
