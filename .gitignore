@@ -2,6 +2,7 @@ client_secrets.json
 *.html
 .env
 convert_js_to_python.py
+lst.ipynb
 series/
 # Byte-compiled / optimized / DLL files
 __pycache__/
