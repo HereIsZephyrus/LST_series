@@ -57,7 +57,7 @@ def show_map(self, map_data, map_name, type = 'LST'):
     # Display the map
     map_render.save(map_name + '.html')
 
-def create_lst_image(year,month_list,folder_name):
+def create_lst_image(year,month_list,folder_name,to_drive = True):
     # Define parameters
     boundary = ee.FeatureCollection('projects/ee-channingtong/assets/YZBboundary')
     geometry = boundary.union().geometry()
@@ -93,8 +93,9 @@ def create_lst_image(year,month_list,folder_name):
             'image': month_average
         }
         map_name = "landsat-" + str(year) + '-' + str(month)
-        show_map(None, image_data, map_name,'LST')
-        task = ee.batch.Export.image.toDrive(image=month_average,
+        task = None
+        if to_drive:
+            task = ee.batch.Export.image.toDrive(image=month_average,
                                         description=map_name,
                                         folder=f'{folder_name}',
                                         scale=30,
@@ -102,5 +103,17 @@ def create_lst_image(year,month_list,folder_name):
                                         region=geometry,
                                         fileFormat='GeoTIFF',
                                         maxPixels=1e13)
-        task.start()
+            task.start()
+        else:
+            show_map(None, image_data, map_name,'LST')
         return task
+
+def __main__():
+    ee.Initialize(project='ee-channingtong')
+    year = 2022
+    month_list = [10] # for test
+    folder_name = 'landsat_lst_timeseries'
+    create_lst_image(year,month_list,folder_name,False)
+
+if __name__ == '__main__':
+    __main__()
