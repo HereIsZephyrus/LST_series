@@ -1,5 +1,4 @@
 import ee
-import ee.data
 import folium
 from ee_lst.landsat_lst import fetch_landsat_collection
 import altair as alt
@@ -58,16 +57,16 @@ def show_map(self, map_data, map_name, type = 'LST'):
     # Display the map
     map_render.save(map_name + '.html')
 
-def create_lst_image(city_name,data_range,city_geometry,urban_geometry,folder_name,to_drive = True):
+def create_lst_image(city_name,date_start,date_end,city_geometry,urban_geometry,folder_name,to_drive = True):
     # Define parameters
-    satellite_list = ["L4", "L5", "L7", "L8"]
+    satellite_list = ['L4', 'L5', 'L7', 'L8']
     use_ndvi = True
     cloud_threshold = 10
    
-    landsat_coll = []
+    landsat_coll = ee.ImageCollection([])
     for satellite in satellite_list:
         landsat_coll_sat = fetch_landsat_collection(
-        satellite, data_range, city_geometry, cloud_threshold, urban_geometry, use_ndvi
+        satellite, date_start, date_end, city_geometry, cloud_threshold, urban_geometry, use_ndvi
         )
         landsat_coll.merge(landsat_coll_sat)
     
@@ -124,9 +123,8 @@ def create_lst_image_timeseries(folder_name,to_drive = True):
             for month in month_list:
                 date_start = f'{year}-{month}-01'
                 date_end = f'{year}-{month}-31'
-                data_range = ee.DateRange(date_start, date_end)
                 print("Processing ", date_start, 'to', date_end)
-                create_lst_image(city_name,data_range,city_geometry,urban_geometry,folder_name,to_drive)
+                create_lst_image(city_name,date_start,date_end,city_geometry,urban_geometry,folder_name,to_drive)
                 index += 1
     print("Total number of images: ", index)
     if (index > 1):
