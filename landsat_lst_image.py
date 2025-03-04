@@ -1,6 +1,6 @@
 import ee
 import folium
-from ee_lst.landsat_lst import fetch_landsat_collection
+from ee_lst.landsat_lst import fetch_best_landsat_image
 import altair as alt
 import eerepr
 import geopandas as gpd
@@ -57,36 +57,35 @@ def show_map(self, map_data, map_name, type = 'LST'):
     # Display the map
     map_render.save(map_name + '.html')
 
-def create_lst_image(city_name,date_start,date_end,city_geometry,urban_geometry,folder_name,to_drive = True):
+def create_lst_image(city_name,date_start,date_end,city_geometry,urban_geometry,folder_name,to_drive):
     # Define parameters
-    satellite_list = ['L4', 'L5', 'L7', 'L8']
+    satellite_list = ['L8', 'L7', 'L5', 'L4']
     use_ndvi = True
-    cloud_threshold = 10
+    cloud_threshold = 20
    
-    landsat_coll = ee.ImageCollection([])
+    landsat_coll = None
     for satellite in satellite_list:
-        landsat_coll_sat = fetch_landsat_collection(
-        satellite, date_start, date_end, city_geometry, cloud_threshold, urban_geometry, use_ndvi
-        )
-        landsat_coll.merge(landsat_coll_sat)
+        try:
+            landsat_coll_sat = fetch_best_landsat_image(
+            satellite, date_start, date_end, city_geometry, cloud_threshold, urban_geometry, use_ndvi
+            )
+            landsat_coll = landsat_coll_sat
+            break
+        except ValueError as e:
+            continue
     
-    image_num = landsat_coll.size().getInfo()
-    if image_num == 0:
+    if landsat_coll is None:
         print("No Landsat data found")
         return None
-    
-    print("total num of the month : ", image_num)
-
-    month_average = landsat_coll.select('LST').mean().clip(city_geometry)
 
     image_data = {
         'geometry': city_geometry,
-        'image': month_average
+        'image': landsat_coll
     }
     map_name = f'landsat_{city_name}_{date_start}_{date_end}'
     task = None
     if to_drive:
-        task = ee.batch.Export.image.toDrive(image=month_average,
+        task = ee.batch.Export.image.toDrive(image=landsat_coll,
                                     description=map_name,
                                     folder=f'{folder_name}',
                                     scale=30,
@@ -98,41 +97,3 @@ def create_lst_image(city_name,date_start,date_end,city_geometry,urban_geometry,
     else:
         show_map(None, image_data, map_name,'LST')
     return task
-    
-def create_lst_image_timeseries(folder_name,to_drive = True):
-    asset_path = 'projects/ee-channingtong/assets/'
-    total_boundary = ee.FeatureCollection(asset_path + 'YZBboundary')
-    total_geometry = total_boundary.union().geometry()
-    total_area = total_geometry.area().getInfo()
-    print("Area of YZB: ", total_area) 
-    index = 0
-    for city_boundary in total_boundary.getInfo()['features']:
-        city_code = city_boundary['properties']['市代码']
-        city_geometry = city_boundary['geometry']
-        asset_name = f'urban_{city_code}'
-        urban_boundary = ee.FeatureCollection(asset_path + asset_name)
-        urban_geometry = urban_boundary.union().geometry()
-        city_name = urban_boundary.getInfo()['features'][0]['properties']['city_name']
-        urban_area = urban_geometry.area().getInfo()
-        print("Area of ", city_name, ": ", urban_area)
-        year_list = range(1984,2024)
-        year_list = [2022] # for test
-        for year in year_list:
-            month_list = range(1,13)
-            month_list = [10] # for test
-            for month in month_list:
-                date_start = f'{year}-{month}-01'
-                date_end = f'{year}-{month}-31'
-                print("Processing ", date_start, 'to', date_end)
-                create_lst_image(city_name,date_start,date_end,city_geometry,urban_geometry,folder_name,to_drive)
-                index += 1
-    print("Total number of images: ", index)
-    if (index > 1):
-        return # for test
-def __main__():
-    ee.Initialize(project='ee-channingtong')
-    folder_name = 'landsat_lst_timeseries'
-    create_lst_image_timeseries(folder_name,False)
-
-if __name__ == '__main__':
-    __main__()
