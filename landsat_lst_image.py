@@ -70,8 +70,10 @@ def create_lst_image(city_name,date_start,date_end,city_geometry,urban_geometry,
             satellite, date_start, date_end, city_geometry, cloud_threshold, urban_geometry, use_ndvi
             )
             landsat_coll = landsat_coll_sat
+            print(f"success: {satellite}")
             break
         except ValueError as e:
+            print(f"no data for {satellite}")
             continue
     
     if landsat_coll is None:

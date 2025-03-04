@@ -14,6 +14,7 @@ def create_lst_image_timeseries(folder_id,folder_name,save_path,to_drive = True)
     total_geometry = total_boundary.union().geometry()
     total_area = total_geometry.area().getInfo()
     print("Area of YZB: ", total_area) 
+    month_length = [31,28,31,30,31,30,31,31,30,31,30,31]
     index = 0
     if (to_drive):
         gauth = GoogleAuth()
@@ -22,7 +23,7 @@ def create_lst_image_timeseries(folder_id,folder_name,save_path,to_drive = True)
     for city_boundary in total_boundary.getInfo()['features']:
         city_name = city_boundary['properties']['市名']
         city_code = city_boundary['properties']['市代码']
-        city_geometry = city_boundary['geometry']
+        city_geometry = ee.Geometry(city_boundary['geometry'])
         asset_name = f'urban_{city_code}'
         urban_boundary = ee.FeatureCollection(asset_path + asset_name)
         urban_geometry = urban_boundary.union().geometry()
@@ -39,7 +40,7 @@ def create_lst_image_timeseries(folder_id,folder_name,save_path,to_drive = True)
             month_list = [10] # for test
             for month in month_list:
                 date_start = ee.Date.fromYMD(year,month,1)
-                date_end = ee.Date.fromYMD(year,month,31)
+                date_end = ee.Date.fromYMD(year,month,month_length[month-1])
                 task = create_lst_image(city_name,date_start,date_end,city_geometry,urban_geometry,folder_name,to_drive)
                 if (to_drive):
                     is_success = check_task_status(task)
