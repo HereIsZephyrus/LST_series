@@ -57,6 +57,26 @@ def show_map(self, map_data, map_name, type = 'LST'):
     # Display the map
     map_render.save(map_name + '.html')
 
+def filter_city_bound(city_geometry):
+    """
+    city geometry buffer has many scatters. select the largest polygon as the main urban area
+    """
+    if (city_geometry.type().getInfo() == 'Polygon'):
+        return city_geometry
+    geometry_num = city_geometry.geometries().length().getInfo()
+    print(f"geometry_num: {geometry_num}")
+    largest = None
+    max_area = 0
+    for i in range(0,geometry_num):
+        polygon = ee.Geometry.Polygon(city_geometry.coordinates().get(i))
+        area = polygon.area().getInfo()
+        print(f"area: {area}")
+        if area > max_area:
+            max_area = area
+            largest = ee.Geometry(polygon)
+    print(f"max area is {max_area}")
+    return largest
+
 def create_lst_image(city_name,date_start,date_end,city_geometry,urban_geometry,folder_name,to_drive):
     # Define parameters
     satellite_list = ['L8', 'L7', 'L5', 'L4']
