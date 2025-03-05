@@ -39,6 +39,7 @@ def create_lst_image_timeseries(folder_id,folder_name,save_path,to_drive = True)
             month_list = range(1,13)
             month_list = [10] # for test
             for month in month_list:
+                print(f"Creating date with: year={year}, month={month}, day={month_length[month-1]}")
                 date_start = ee.Date.fromYMD(year,month,1)
                 date_end = ee.Date.fromYMD(year,month,month_length[month-1])
                 task = create_lst_image(city_name,date_start,date_end,city_geometry,urban_geometry,folder_name,to_drive)
