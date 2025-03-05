@@ -3,6 +3,8 @@ import folium
 from ee_lst.landsat_lst import fetch_best_landsat_image
 import altair as alt
 import eerepr
+import logging
+import traceback
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -64,17 +66,16 @@ def filter_city_bound(city_geometry):
     if (city_geometry.type().getInfo() == 'Polygon'):
         return city_geometry
     geometry_num = city_geometry.geometries().length().getInfo()
-    print(f"geometry_num: {geometry_num}")
+    logging.debug(f"geometry_num: {geometry_num}")
     largest = None
     max_area = 0
     for i in range(0,geometry_num):
         polygon = ee.Geometry.Polygon(city_geometry.coordinates().get(i))
         area = polygon.area().getInfo()
-        print(f"area: {area}")
         if area > max_area:
             max_area = area
             largest = ee.Geometry(polygon)
-    print(f"max area is {max_area}")
+    logging.debug(f"max area is {max_area}")
     return largest
 
 def create_lst_image(city_name,date_start,date_end,city_geometry,urban_geometry,folder_name,to_drive):
@@ -86,18 +87,20 @@ def create_lst_image(city_name,date_start,date_end,city_geometry,urban_geometry,
     landsat_coll = None
     for satellite in satellite_list:
         try:
-            landsat_coll_sat = fetch_best_landsat_image(
+            landsat_coll = fetch_best_landsat_image(
             satellite, date_start, date_end, city_geometry, cloud_threshold, urban_geometry, use_ndvi
             )
-            landsat_coll = landsat_coll_sat
-            print(f"success: {satellite}")
+            logging.info(f"success: {satellite}")
             break
-        except ValueError as e:
-            print(f"no data for {satellite}")
+        except ValueError as ve:
+            logging.info(f"no data for {satellite}({ve})")
+            continue
+        except Exception as e:
+            logging.error(f"fetch error: {e}\n traceback: {traceback.format_exc()}")
             continue
     
     if landsat_coll is None:
-        print("No Landsat data found")
+        logging.error("No Landsat data found")
         return None
 
     image_data = {

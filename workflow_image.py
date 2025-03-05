@@ -7,13 +7,23 @@ from dotenv import load_dotenv
 import os
 import ee
 import time
+import logging
+
+logging.basicConfig(
+    filename='workflow_image.log',
+    filemode='w',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+logging.getLogger('ee').setLevel(logging.WARNING)
 
 def create_lst_image_timeseries(folder_id,folder_name,save_path,to_drive = True):
     asset_path = 'projects/ee-channingtong/assets/'
     total_boundary = ee.FeatureCollection(asset_path + 'YZBboundary')
-    total_geometry = total_boundary.union().geometry()
-    total_area = total_geometry.area().getInfo()
-    print("Area of YZB: ", total_area) 
+    #total_geometry = total_boundary.union().geometry()
+    #total_area = total_geometry.area().getInfo()
+    #print("Area of YZB: ", total_area) 
     month_length = [31,28,31,30,31,30,31,31,30,31,30,31]
     index = 0
     if (to_drive):
@@ -24,15 +34,14 @@ def create_lst_image_timeseries(folder_id,folder_name,save_path,to_drive = True)
         city_name = city_boundary['properties']['市名']
         city_code = city_boundary['properties']['市代码']
         city_geometry = ee.Geometry(city_boundary['geometry'])
+        logging.info(f"{city_name}'s administrative city area: {city_geometry.area().getInfo()}")
         asset_name = f'urban_{city_code}'
         urban_boundary = ee.FeatureCollection(asset_path + asset_name)
-        urban_geometry = filter_city_bound(urban_boundary.union().geometry())
+        urban_geometry = filter_city_bound(urban_boundary.geometry())
         check_city_name = urban_boundary.getInfo()['features'][0]['properties']['city_name']
         if (city_name != check_city_name):
-            print("City name mismatch: ", city_name, check_city_name)
+            logging.warning(f"City name mismatch: {city_name}, {check_city_name}")
             continue
-        urban_area = urban_geometry.area().getInfo()
-        print("Area of ", city_name, ": ", urban_area)
         year_list = range(1984,2024)
         year_list = [2022] # for test
         for year in year_list:
@@ -40,18 +49,15 @@ def create_lst_image_timeseries(folder_id,folder_name,save_path,to_drive = True)
             month_list = [10] # for test
             for month in month_list:
                 try:
-                    # Add debug prints
-                    print(f"Processing: Year={year}, Month={month}, Days={month_length[month-1]}")
+                    logging.info(f"Processing: Year={year}, Month={month}")
                     
                     date_start = ee.Date.fromYMD(year, month, 1)
                     date_end = ee.Date.fromYMD(year, month, month_length[month-1]).advance(1, 'day')
                     
-                    # Verify dates were created successfully
-                    print(f"Start date: {date_start.format().getInfo()}")
-                    print(f"End date: {date_end.format().getInfo()}")
+                    logging.debug(f"Start date: {date_start.format().getInfo()}")
+                    logging.debug(f"End date: {date_end.format().getInfo()}")
                     
-                    task = create_lst_image(city_name, date_start, date_end, city_geometry, 
-                                         urban_geometry, folder_name, to_drive)
+                    task = create_lst_image(city_name, date_start, date_end, city_geometry, urban_geometry, folder_name, to_drive)
                     if (to_drive):
                         is_success = check_task_status(task)
                         if is_success:
@@ -59,11 +65,11 @@ def create_lst_image_timeseries(folder_id,folder_name,save_path,to_drive = True)
                             folder_id = get_folder_id(drive,folder_name)
                             download_and_clean(drive,folder_id, save_path)
                 except Exception as e:
-                    print(f"Error processing date: Year={year}, Month={month}")
-                    print(f"Error details: {str(e)}")
+                    logging.error(f"Error processing date: Year={year}, Month={month}")
+                    logging.error(f"Error details: {str(e)}")
                     continue
                 index += 1
-    print("Total number of images: ", index)
+    logging.info(f"Total number of images: {index}")
 
 def __main__():
     load_dotenv()
