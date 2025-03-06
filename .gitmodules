@@ -1,4 +1,4 @@
 [submodule "ee_lst"]
 	path = ee_lst
 	url = https://github.com/HereIsZephyrus/ee_lst
-	branch = mask
+	branch = main

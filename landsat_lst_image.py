@@ -85,12 +85,12 @@ def create_lst_image(city_name,date_start,date_end,city_geometry,urban_geometry,
     cloud_threshold = 20
    
     landsat_coll = None
+    map_name = f'landsat_{city_name}'
     for satellite in satellite_list:
         try:
-            landsat_coll = fetch_best_landsat_image(
-            satellite, date_start, date_end, city_geometry, cloud_threshold, urban_geometry, use_ndvi
-            )
+            landsat_coll = fetch_best_landsat_image(satellite, date_start, date_end, city_geometry, cloud_threshold, urban_geometry, use_ndvi)
             logging.info(f"success: {satellite}")
+            map_name = f'{map_name}_{satellite}'
             break
         except ValueError as ve:
             logging.info(f"no data for {satellite}({ve})")
@@ -107,7 +107,6 @@ def create_lst_image(city_name,date_start,date_end,city_geometry,urban_geometry,
         'geometry': city_geometry,
         'image': landsat_coll
     }
-    map_name = f'landsat_{city_name}_{date_start}_{date_end}'
     task = None
     if to_drive:
         task = ee.batch.Export.image.toDrive(image=landsat_coll,
@@ -120,5 +119,9 @@ def create_lst_image(city_name,date_start,date_end,city_geometry,urban_geometry,
                                     maxPixels=1e13)
         task.start()
     else:
-        show_map(None, image_data, map_name,'LST')
+        try:
+            show_map(None, image_data, map_name,'LST')
+            logging.info(f"image saved to {map_name}.html")
+        except Exception as e:
+            logging.error(f"error: {e}\n traceback: {traceback.format_exc()}")
     return task
