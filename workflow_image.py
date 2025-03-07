@@ -37,8 +37,6 @@ def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
         index += 1
         print(f'Processing city id: {index}')
         city_name = city_boundary['properties']['市名']
-        if (city_name != '武汉市'): # priority for Wuhan
-            continue
         city_name = city_boundary['properties']['市名']
         city_code = city_boundary['properties']['市代码']
         city_geometry = ee.Geometry(city_boundary['geometry'])
@@ -51,7 +49,6 @@ def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
             logging.warning(f"City name mismatch: {city_name}, {check_city_name}")
             continue
         year_list = range(1984,2024)
-        year_list = [2020] # for test
         for year in year_list:
             month_list = range(1,13)
             if (to_drive):
@@ -75,6 +72,7 @@ def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
                     ) for month in month_list]
                     exported_months = [month for month in as_completed(finish_states) if month is not None]
                     logging.info(f"{city_name} {year} exported months: {exported_months}")
+    print("All done. >_<")
 
 def __main__():
     load_dotenv()
