@@ -3,7 +3,8 @@ from pydrive.drive import GoogleDrive
 import os
 import time
 from datetime import datetime
-def check_task_status(task, gap = 20):
+import logging
+def check_task_status(task, task_identifier, gap = 20):
     """
     监控任务状态直到完成或失败
     
@@ -21,17 +22,17 @@ def check_task_status(task, gap = 20):
         state = status['state']
         
         # 打印当前状态
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 任务状态: {state}")
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {task_identifier} 任务状态: {state}")
         
         # 检查是否完成
         if state == 'COMPLETED':
-            print("✓ 任务成功完成！")
+            print(f"✓ {task_identifier} 任务成功完成！")
             return True
             
         # 检查是否失败
         elif state in ['FAILED', 'CANCELLED']:
-            error_message = status.get('error_message', '未知错误')
-            print(f"× 任务失败: {error_message}")
+            logging.error(f"{task_identifier} failed")
+            print(f"× {task_identifier} 任务失败")
             return False
             
         # 等待一段时间再检查
@@ -63,8 +64,9 @@ def get_folder_id_by_name(drive, folder_name, parent_id='root'):
         return file_list[0]['id']
     return None
 
-def download_and_clean(drive,folder_id, save_path):
+def download_and_clean(drive,folder_id, cloud_file_name, save_path):
     # 创建保存目录
+    cloud_file_name = cloud_file_name + '.tif'
     os.makedirs(save_path, exist_ok=True)
     
     # 查询文件夹内容（排除子文件夹）
@@ -73,18 +75,14 @@ def download_and_clean(drive,folder_id, save_path):
         'maxResults': 1000
     }).GetList()
     
-    # 下载并删除文件
-    for index, file_obj in enumerate(file_list):
-        try:
-            # 下载文件
-            filename = os.path.join(save_path, file_obj['title'])
-            print(f"({index+1}/{len(file_list)}) 正在下载 {file_obj['title']}")
-            file_obj.GetContentFile(filename)
-            
-            # 删除云端文件
+    for file_obj in file_list:
+        if (file_obj['title'] == cloud_file_name):
+            print(f"找到文件: {cloud_file_name}")
+            local_file_name = os.path.join(save_path, cloud_file_name)
+            print(f"正在下载 {cloud_file_name}")
+            file_obj.GetContentFile(local_file_name)
             file_obj.Delete()
-            print(f"√ 已成功删除云端文件")
-            
-        except Exception as e:
-            print(f"× 文件处理失败: {str(e)}")
-            continue
+            print(f"已成功删除{cloud_file_name}")
+            return
+    print(f"未找到文件: {cloud_file_name}")
+    return

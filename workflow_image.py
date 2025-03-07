@@ -1,9 +1,7 @@
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
-from landsat_lst_image import create_lst_image, filter_city_bound
-from fetch_drive import download_and_clean, check_task_status
-from fetch_drive import get_folder_id_by_name as get_folder_id
+from landsat_lst_image import export_lst_image, filter_city_bound, create_lst_image
 from dotenv import load_dotenv
 import os
 import ee
@@ -24,13 +22,18 @@ def create_lst_image_timeseries(folder_id,folder_name,save_path,to_drive = True)
     total_boundary = ee.FeatureCollection(asset_path + 'YZBboundary')
     #total_geometry = total_boundary.union().geometry()
     #total_area = total_geometry.area().getInfo()
-    #print("Area of YZB: ", total_area) 
-    index = 0
+    #print("Area of YZB: ", total_area)
     if (to_drive):
         gauth = GoogleAuth()
         gauth.LocalWebserverAuth()  # 首次运行需要浏览器授权
         drive = GoogleDrive(gauth)
+    index = 0
     for city_boundary in total_boundary.getInfo()['features']:
+        index += 1
+        print(f'Processing city id: {index}')
+        if (index > 1):
+            break # for test
+        city_name = city_boundary['properties']['市名']
         city_name = city_boundary['properties']['市名']
         city_code = city_boundary['properties']['市代码']
         city_geometry = ee.Geometry(city_boundary['geometry'])
@@ -46,45 +49,27 @@ def create_lst_image_timeseries(folder_id,folder_name,save_path,to_drive = True)
         year_list = [2020] # for test
         for year in year_list:
             month_list = range(1,13)
-            with ThreadPoolExecutor(max_workers=12) as executor:
-                tasks = [executor.submit(
-                    create_lst_image, city_name = city_name, 
-                    year = year,month = month,
-                    city_geometry = city_geometry, urban_geometry = urban_geometry, 
-                    folder_name = folder_name, to_drive = to_drive
-                ) for month in month_list]
-                if (to_drive):
-                    for task in tasks:
-                        is_success = check_task_status(task)
-                        if is_success:
-                            time.sleep(30) # wait for the last iamge to be created
-                            folder_id = get_folder_id(drive,folder_name)
-                            download_and_clean(drive,folder_id, save_path)
-            """"
-            for month in month_list:
-                try:
-                    logging.info(f"Processing: Year={year}, Month={month}")
-                    
-                    date_start = ee.Date.fromYMD(year, month, 1)
-                    date_end = ee.Date.fromYMD(year, month, month_length[month-1]).advance(1, 'day')
-                    
-                    logging.debug(f"Start date: {date_start.format().getInfo()}")
-                    logging.debug(f"End date: {date_end.format().getInfo()}")
-                    
-                    task = create_lst_image(city_name, date_start, date_end, city_geometry, urban_geometry, folder_name, to_drive)
-                    if (to_drive):
-                        is_success = check_task_status(task)
-                        if is_success:
-                            time.sleep(30) # wait for the last iamge to be created
-                            folder_id = get_folder_id(drive,folder_name)
-                            download_and_clean(drive,folder_id, save_path)
-                except Exception as e:
-                    logging.error(f"Error processing date: Year={year}, Month={month}")
-                    logging.error(f"Error details: {str(e)}")
-                    continue
-                index += 1
-            """
-    logging.info(f"Total number of images: {index}")
+            if (to_drive):
+                with ThreadPoolExecutor() as executor:
+                    task_states = [executor.submit(
+                        export_lst_image, city_name = city_name, 
+                        year = year,month = month,
+                        city_geometry = city_geometry, urban_geometry = urban_geometry, 
+                        folder_name = folder_name, to_drive = to_drive,
+                        drive = drive, save_path = save_path
+                    ) for month in month_list]
+                    exported_months = [month for month in as_completed(task_states) if month is not None]
+                    logging.info(f"{city_name} {year} exported months: {exported_months}")
+            else:
+                with ThreadPoolExecutor() as executor:
+                    finish_states = [executor.submit(
+                        create_lst_image, city_name = city_name, 
+                        year = year,month = month,
+                        city_geometry = city_geometry, urban_geometry = urban_geometry, 
+                        folder_name = folder_name, to_drive = to_drive
+                    ) for month in month_list]
+                    exported_months = [month for month in as_completed(finish_states) if month is not None]
+                    logging.info(f"{city_name} {year} exported months: {exported_months}")
 
 def __main__():
     load_dotenv()
@@ -94,7 +79,7 @@ def __main__():
     ee.Initialize(project='ee-channingtong')
     folder_name = 'landsat_lst_timeseries'
 
-    create_lst_image_timeseries(FOLDER_ID,folder_name,SAVE_PATH,False)
+    create_lst_image_timeseries(FOLDER_ID,folder_name,SAVE_PATH,True)
 
 if __name__ == '__main__':
     __main__()
