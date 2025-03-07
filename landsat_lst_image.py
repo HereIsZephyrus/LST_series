@@ -1,17 +1,16 @@
 import ee
+import os
 import folium
-from ee_lst.landsat_lst import fetch_best_landsat_image
 import time
 import logging
 import traceback
-import geopandas as gpd
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
+import multiprocessing as mp
+import csv
+from dotenv import load_dotenv
+from pypinyin import lazy_pinyin as pinyin
 from fetch_drive import download_and_clean, check_task_status
 from fetch_drive import get_folder_id_by_name as get_folder_id
-from pypinyin import lazy_pinyin as pinyin
-import multiprocessing as mp
+from ee_lst.landsat_lst import fetch_best_landsat_image
 
 # Define a method to display Earth Engine image tiles
 def add_ee_layer(self, ee_image_object, vis_params, name):
@@ -87,13 +86,19 @@ def create_lst_image(city_name,year,month,city_geometry,urban_geometry,folder_na
     date_start = ee.Date.fromYMD(year, month, 1)
     date_end = ee.Date.fromYMD(year, month, month_length[month-1]).advance(1, 'day')
     use_ndvi = True
-    cloud_threshold = 20
+    cloud_threshold = 25
    
+    load_dotenv()
+    record_file_path = os.getenv('RECORD_FILE_PATH') # csv
+
     landsat_coll = None
     map_name = f'landsat_{city_name}'
     for satellite in satellite_list:
         try:
-            landsat_coll = fetch_best_landsat_image(satellite, date_start, date_end, city_geometry, cloud_threshold, urban_geometry, use_ndvi)
+            landsat_coll, toa_porpotion, sr_porpotion, toa_cloud, sr_cloud = fetch_best_landsat_image(satellite, date_start, date_end, city_geometry, cloud_threshold, urban_geometry, use_ndvi)
+            with open(record_file_path, 'a', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow([city_name, year, month, toa_porpotion, sr_porpotion, toa_cloud, sr_cloud])
             logging.info(f"success: {satellite}")
             map_name = f'{map_name}_{satellite}_{year}_{month}'
             break
@@ -138,19 +143,18 @@ def create_lst_image(city_name,year,month,city_geometry,urban_geometry,folder_na
             logging.error(f"error: {e}\n traceback: {traceback.format_exc()}")
     return None
 
-def create_monitor_task(task,file_name,drive,folder_name,save_path):
-    def monitor_export_task():
-        task_identifier = file_name
-        is_success = check_task_status(task,task_identifier)
-        if is_success:
-            time.sleep(30) # wait for the last iamge to be created
-            folder_id = get_folder_id(drive,folder_name)
-            try:
-                download_and_clean(drive, folder_id, file_name, save_path)
-            except Exception as e:
-                logging.error(f'{file_name} failed to download({e})')
-            logging.info(f'{file_name} exported')
-    return monitor_export_task
+def monitor_export_task(task,file_name,drive,folder_name,save_path):
+    task_identifier = file_name
+    is_success = check_task_status(task,task_identifier)
+    if is_success:
+        time.sleep(30) # wait for the last iamge to be created
+        folder_id = get_folder_id(drive,folder_name)
+        try:
+            download_and_clean(drive, folder_id, file_name, save_path)
+        except Exception as e:
+            logging.error(f'{file_name} failed to download({e})')
+        logging.info(f'{file_name} exported')
+    return
 
 def export_lst_image(city_name,year,month,city_geometry,urban_geometry,folder_name,to_drive,drive, save_path):
     """
@@ -164,8 +168,7 @@ def export_lst_image(city_name,year,month,city_geometry,urban_geometry,folder_na
             return None
         logging.info(f'start export {city_name} {year} {month}')
         if (to_drive):
-            monitor_task = create_monitor_task(task,file_name,drive,folder_name,save_path)
-            process = mp.Process(target=monitor_task)
+            process = mp.Process(target=monitor_export_task, args=(task,file_name,drive,folder_name,save_path))
             process.start()
             print("Process PID: ", process.pid)
             logging.info(f'{city_name} {year} {month} export PID is {process.pid}')

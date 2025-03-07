@@ -5,8 +5,8 @@ from landsat_lst_image import export_lst_image, filter_city_bound, create_lst_im
 from dotenv import load_dotenv
 import os
 import ee
-import time
 import logging
+import csv
 
 logging.basicConfig(
     filename='workflow_image.log',
@@ -17,12 +17,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logging.getLogger('ee').setLevel(logging.WARNING)
 
-def create_lst_image_timeseries(folder_id,folder_name,save_path,to_drive = True):
+def init_record_file():
+    record_file_path = os.getenv('RECORD_FILE_PATH') # csv
+    header = ['city', 'year', 'month', 'toa_image_porpotion', 'sr_image_porpotion', 'toa_cloud_ratio', 'sr_cloud_ratio']
+    with open(record_file_path, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+
+def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
     asset_path = 'projects/ee-channingtong/assets/'
     total_boundary = ee.FeatureCollection(asset_path + 'YZBboundary')
     #total_geometry = total_boundary.union().geometry()
-    #total_area = total_geometry.area().getInfo()
-    #print("Area of YZB: ", total_area)
     if (to_drive):
         gauth = GoogleAuth()
         gauth.LocalWebserverAuth()  # 首次运行需要浏览器授权
@@ -31,9 +36,9 @@ def create_lst_image_timeseries(folder_id,folder_name,save_path,to_drive = True)
     for city_boundary in total_boundary.getInfo()['features']:
         index += 1
         print(f'Processing city id: {index}')
-        if (index > 1):
-            break # for test
         city_name = city_boundary['properties']['市名']
+        if (city_name != '武汉市'): # priority for Wuhan
+            continue
         city_name = city_boundary['properties']['市名']
         city_code = city_boundary['properties']['市代码']
         city_geometry = ee.Geometry(city_boundary['geometry'])
@@ -73,13 +78,13 @@ def create_lst_image_timeseries(folder_id,folder_name,save_path,to_drive = True)
 
 def __main__():
     load_dotenv()
-    SAVE_PATH = os.getenv('SERIES_SAVE_PATH')
-    FOLDER_ID = os.getenv('SERIES_FOLDER_ID')
+    SAVE_PATH = os.getenv('IMAGE_SAVE_PATH')
 
     ee.Initialize(project='ee-channingtong')
     folder_name = 'landsat_lst_timeseries'
+    init_record_file()
 
-    create_lst_image_timeseries(FOLDER_ID,folder_name,SAVE_PATH,True)
+    create_lst_image_timeseries(folder_name,SAVE_PATH,True)
 
 if __name__ == '__main__':
     __main__()
