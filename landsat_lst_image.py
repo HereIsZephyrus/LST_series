@@ -78,9 +78,12 @@ def filter_city_bound(city_geometry):
     logging.debug(f"max area is {max_area}")
     return largest
 
-def create_lst_image(city_name,date_start,date_end,city_geometry,urban_geometry,folder_name,to_drive):
+def create_lst_image(city_name,year,month,city_geometry,urban_geometry,folder_name,to_drive):
     # Define parameters
-    satellite_list = ['L8', 'L7', 'L5', 'L4']
+    month_length = [31,28,31,30,31,30,31,31,30,31,30,31]
+    satellite_list = ['L8', 'L5', 'L7', 'L4']
+    date_start = ee.Date.fromYMD(year, month, 1)
+    date_end = ee.Date.fromYMD(year, month, month_length[month-1]).advance(1, 'day')
     use_ndvi = True
     cloud_threshold = 20
    
@@ -90,7 +93,7 @@ def create_lst_image(city_name,date_start,date_end,city_geometry,urban_geometry,
         try:
             landsat_coll = fetch_best_landsat_image(satellite, date_start, date_end, city_geometry, cloud_threshold, urban_geometry, use_ndvi)
             logging.info(f"success: {satellite}")
-            map_name = f'{map_name}_{satellite}'
+            map_name = f'{map_name}_{satellite}_{year}_{month}'
             break
         except ValueError as ve:
             logging.info(f"no data for {satellite}({ve})")

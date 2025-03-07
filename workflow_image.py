@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
 from landsat_lst_image import create_lst_image, filter_city_bound
@@ -24,7 +25,6 @@ def create_lst_image_timeseries(folder_id,folder_name,save_path,to_drive = True)
     #total_geometry = total_boundary.union().geometry()
     #total_area = total_geometry.area().getInfo()
     #print("Area of YZB: ", total_area) 
-    month_length = [31,28,31,30,31,30,31,31,30,31,30,31]
     index = 0
     if (to_drive):
         gauth = GoogleAuth()
@@ -43,10 +43,24 @@ def create_lst_image_timeseries(folder_id,folder_name,save_path,to_drive = True)
             logging.warning(f"City name mismatch: {city_name}, {check_city_name}")
             continue
         year_list = range(1984,2024)
-        year_list = [2022] # for test
+        year_list = [2020] # for test
         for year in year_list:
             month_list = range(1,13)
-            month_list = [10] # for test
+            with ThreadPoolExecutor(max_workers=12) as executor:
+                tasks = [executor.submit(
+                    create_lst_image, city_name = city_name, 
+                    year = year,month = month,
+                    city_geometry = city_geometry, urban_geometry = urban_geometry, 
+                    folder_name = folder_name, to_drive = to_drive
+                ) for month in month_list]
+                if (to_drive):
+                    for task in tasks:
+                        is_success = check_task_status(task)
+                        if is_success:
+                            time.sleep(30) # wait for the last iamge to be created
+                            folder_id = get_folder_id(drive,folder_name)
+                            download_and_clean(drive,folder_id, save_path)
+            """"
             for month in month_list:
                 try:
                     logging.info(f"Processing: Year={year}, Month={month}")
@@ -69,6 +83,7 @@ def create_lst_image_timeseries(folder_id,folder_name,save_path,to_drive = True)
                     logging.error(f"Error details: {str(e)}")
                     continue
                 index += 1
+            """
     logging.info(f"Total number of images: {index}")
 
 def __main__():
