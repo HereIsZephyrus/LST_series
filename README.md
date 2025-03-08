@@ -19,6 +19,7 @@ create a `.env` file in the root directory and add the following variables:
 IMAGE_SAVE_PATH=your local path to save images (required)
 RECORD_FILE_PATH=your local path to save record file (required)
 SERIES_FOLDER_ID=google drive folder id (required)
+PROJECT_NAME=gee project name (required)
 ```
 
 ### Google authentication
