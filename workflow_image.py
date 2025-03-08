@@ -7,6 +7,7 @@ import os
 import ee
 import logging
 import csv
+import sys
 
 logging.basicConfig(
     filename='workflow_image.log',
@@ -20,9 +21,10 @@ logging.getLogger('ee').setLevel(logging.WARNING)
 def init_record_file():
     record_file_path = os.getenv('RECORD_FILE_PATH') # csv
     header = ['city', 'year', 'month', 'toa_image_porpotion', 'sr_image_porpotion', 'toa_cloud_ratio', 'sr_cloud_ratio']
-    with open(record_file_path, 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(header)
+    if (not os.path.exists(record_file_path)):
+        with open(record_file_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(header)
 
 def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
     asset_path = 'projects/ee-channingtong/assets/'
@@ -50,12 +52,11 @@ def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
         if (city_name != check_city_name):
             logging.warning(f"City name mismatch: {city_name}, {check_city_name}")
             continue
-        year_list = range(1984,2024)
-        year_list = [2020] # for test
+        year_list = range(2007,2024)
         for year in year_list:
             month_list = range(1,13)
             if (to_drive):
-                with ThreadPoolExecutor() as executor:
+                with ThreadPoolExecutor(max_workers=9) as executor:
                     task_states = [executor.submit(
                         export_lst_image, city_name = city_name, 
                         year = year,month = month,
@@ -66,7 +67,7 @@ def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
                     exported_months = [month for month in as_completed(task_states) if month is not None]
                     logging.info(f"{city_name} {year} exported months: {exported_months}")
             else:
-                with ThreadPoolExecutor() as executor:
+                with ThreadPoolExecutor(max_workers=9) as executor:
                     finish_states = [executor.submit(
                         create_lst_image, city_name = city_name, 
                         year = year,month = month,
@@ -80,7 +81,11 @@ def __main__():
     load_dotenv()
     SAVE_PATH = os.getenv('IMAGE_SAVE_PATH')
 
-    ee.Initialize(project='ee-channingtong')
+    if (len(sys.argv) > 1):
+        project_name = sys.argv[1]
+    else: 
+        project_name = 'ee-channingtong'
+    ee.Initialize(project=project_name)
     folder_name = 'landsat_lst_timeseries'
     init_record_file()
 
