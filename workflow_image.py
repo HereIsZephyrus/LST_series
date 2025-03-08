@@ -24,6 +24,12 @@ def init_record_file():
         writer = csv.writer(f)
         writer.writerow(header)
 
+def select_executor(to_drive):
+    if (to_drive):
+        return export_lst_image
+    else:
+        return create_lst_image
+
 def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
     asset_path = 'projects/ee-channingtong/assets/'
     total_boundary = ee.FeatureCollection(asset_path + 'YZBboundary')
@@ -36,7 +42,6 @@ def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
     for city_boundary in total_boundary.getInfo()['features']:
         index += 1
         print(f'Processing city id: {index}')
-        city_name = city_boundary['properties']['市名']
         city_name = city_boundary['properties']['市名']
         city_code = city_boundary['properties']['市代码']
         city_geometry = ee.Geometry(city_boundary['geometry'])
@@ -51,27 +56,16 @@ def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
         year_list = range(1984,2024)
         for year in year_list:
             month_list = range(1,13)
-            if (to_drive):
-                with ThreadPoolExecutor(max_workers=9) as executor:
-                    task_states = [executor.submit(
-                        export_lst_image, city_name = city_name, 
-                        year = year,month = month,
-                        city_geometry = city_geometry, urban_geometry = urban_geometry, 
-                        folder_name = folder_name, to_drive = to_drive,
-                        drive = drive, save_path = save_path
-                    ) for month in month_list]
-                    exported_months = [month for month in as_completed(task_states) if month is not None]
-                    logging.info(f"{city_name} {year} exported months: {exported_months}")
-            else:
-                with ThreadPoolExecutor(max_workers=9) as executor:
-                    finish_states = [executor.submit(
-                        create_lst_image, city_name = city_name, 
-                        year = year,month = month,
-                        city_geometry = city_geometry, urban_geometry = urban_geometry, 
-                        folder_name = folder_name, to_drive = to_drive
-                    ) for month in month_list]
-                    exported_months = [month for month in as_completed(finish_states) if month is not None]
-                    logging.info(f"{city_name} {year} exported months: {exported_months}")
+            with ThreadPoolExecutor(max_workers=9) as executor:
+                task_states = [executor.submit(
+                    select_executor(to_drive), city_name = city_name, 
+                    year = year,month = month,
+                    city_geometry = city_geometry, urban_geometry = urban_geometry, 
+                    folder_name = folder_name, to_drive = to_drive,
+                    drive = drive, save_path = save_path
+                ) for month in month_list]
+                exported_months = [month for month in as_completed(task_states) if month is not None]
+                logging.info(f"{city_name} {year} exported months: {exported_months}")
     print("All done. >_<")
 
 def __main__():
