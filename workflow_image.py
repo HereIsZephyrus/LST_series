@@ -39,6 +39,8 @@ def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
         gauth.LocalWebserverAuth()  # 首次运行需要浏览器授权
         drive = GoogleDrive(gauth)
     index = 0
+    year_list = range(1984,2024)
+    month_list = range(1,13)
     for city_boundary in total_boundary.getInfo()['features']:
         index += 1
         print(f'Processing city id: {index}')
@@ -51,11 +53,9 @@ def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
         urban_geometry = filter_city_bound(urban_boundary.geometry())
         check_city_name = urban_boundary.getInfo()['features'][0]['properties']['city_name']
         if (city_name != check_city_name):
-            logging.warning(f"City name mismatch: {city_name}, {check_city_name}")
+            logging.error(f"City name mismatch: {city_name}, {check_city_name}")
             continue
-        year_list = range(1984,2024)
         for year in year_list:
-            month_list = range(1,13)
             with ThreadPoolExecutor(max_workers=9) as executor:
                 task_states = [executor.submit(
                     select_executor(to_drive), city_name = city_name, 
