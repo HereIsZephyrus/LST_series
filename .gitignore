@@ -1,4 +1,5 @@
 client_secrets.json
+credentials.json
 *.html
 .env
 convert_js_to_python.py

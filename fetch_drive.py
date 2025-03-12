@@ -22,6 +22,7 @@ def check_task_status(task, task_identifier, gap = 20):
         if (state != 'READY'):
             print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {task_identifier} task state: {state}")
             if state == 'COMPLETED':
+                time.sleep(10) # ensure the image is seccussfully written to drive
                 print(f"✓ {task_identifier} task success")
                 return True
             elif state in ['FAILED', 'CANCELLED']:
@@ -66,14 +67,17 @@ def download_and_clean(drive,folder_id, cloud_file_name, save_path):
         'maxResults': 1000
     }).GetList()
     
+    is_found = False
     for file_obj in file_list:
-        if (file_obj['title'] == cloud_file_name):
+        if (file_obj['title'].startswith(cloud_file_name)):
+            is_found = True
             print(f"find file {cloud_file_name}")
             local_file_name = os.path.join(save_path, cloud_file_name)
             print(f"downloading to {local_file_name}")
             file_obj.GetContentFile(local_file_name)
             file_obj.Delete()
             print(f"delete {cloud_file_name}")
-            return
-    print(f"not find file {cloud_file_name}")
+            continue
+    if (not is_found):
+        print(f"not find file {cloud_file_name}")
     return

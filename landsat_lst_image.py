@@ -6,6 +6,7 @@ import logging
 import traceback
 import multiprocessing as mp
 import csv
+import constants
 from dotenv import load_dotenv
 from pypinyin import lazy_pinyin as pinyin
 from fetch_drive import download_and_clean, check_task_status
@@ -143,20 +144,22 @@ def create_lst_image(city_name,year,month,city_geometry,urban_geometry,folder_na
             logging.error(f"error: {e}\n traceback: {traceback.format_exc()}")
     return None
 
-def monitor_export_task(task,file_name,drive,folder_name,save_path):
+def monitor_export_task(gauth,task,file_name,drive,folder_name,save_path):
     task_identifier = file_name
     is_success = check_task_status(task,task_identifier)
+    constants.check_and_refresh_token(gauth)
     if is_success:
-        time.sleep(30) # wait for the last iamge to be created
+        time.sleep(20) # wait for the last iamge to be created
         folder_id = get_folder_id(drive,folder_name)
         try:
             download_and_clean(drive, folder_id, file_name, save_path)
+            constants.decrement_process_counter()
         except Exception as e:
             logging.error(f'{file_name} failed to download({e})')
         logging.info(f'{file_name} exported')
     return
 
-def export_lst_image(city_name,year,month,city_geometry,urban_geometry,folder_name,to_drive,drive, save_path):
+def export_lst_image(gauth,city_name,year,month,city_geometry,urban_geometry,folder_name,to_drive,drive, save_path):
     """
     export the lst image to the drive
     """
@@ -168,10 +171,18 @@ def export_lst_image(city_name,year,month,city_geometry,urban_geometry,folder_na
             return None
         logging.info(f'start export {city_name} {year} {month}')
         if (to_drive):
-            process = mp.Process(target=monitor_export_task, args=(task,file_name,drive,folder_name,save_path))
-            process.start()
-            print("Process PID: ", process.pid)
-            logging.info(f'{city_name} {year} {month} export PID is {process.pid}')
+            while constants.is_process_counter_exceed_limit():
+                logging.info(f"process counter exceed limit, wait for 60 seconds")
+                time.sleep(60)
+            try:
+                process = mp.Process(target=monitor_export_task, args=(gauth,task,file_name,drive,folder_name,save_path))
+                process.start()
+                constants.increment_process_counter()
+                print("Process PID: ", process.pid)
+                logging.info(f'{city_name} {year} {month} export PID is {process.pid}')
+            except Exception as e:
+                logging.error(f"error to start process: {e}")
+                return None
         return month
     except Exception as e:
         logging.warning(f'{city_name} {year} {month} failed')
