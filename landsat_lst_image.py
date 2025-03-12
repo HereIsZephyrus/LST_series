@@ -175,8 +175,8 @@ def export_lst_image(gauth,city_name,year,month,city_geometry,urban_geometry,fol
         try:
             try:
                 while monitor.is_process_counter_exceed_limit():
-                    logging.info(f"process counter exceed limit, wait for 60 seconds")
-                    time.sleep(60)
+                    logging.info(f"process counter exceed limit, wait for 10 minutes")
+                    time.sleep(600)
             except Exception as e:
                 logging.error(f"error to check process counter: {e}")
             try:

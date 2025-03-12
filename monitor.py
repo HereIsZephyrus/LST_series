@@ -2,7 +2,7 @@ import time
 import logging
 import os
 from multiprocessing import Lock
-from datetime import datetime
+from datetime import datetime, timedelta
 
 def file_is_occupied(file_name):
     """
@@ -61,7 +61,8 @@ def remove_process(process_name):
 def check_and_refresh_token(gauth):
     if gauth.credentials.refresh_token is None:
         raise Exception('refresh token is None')
-    if gauth.credentials.token_expiry - time.time() < 300:
+    delta_time = (gauth.credentials.token_expiry + timedelta(hours=8) - datetime.now()).total_seconds() # adjust for UTC+8
+    if delta_time < 300:
         gauth.Refresh()
         gauth.SaveCredentialsFile(os.getenv('CREDENTIALS_FILE_PATH'))
         logging.info(f"token current expires in: {gauth.credentials.token_expiry}")
