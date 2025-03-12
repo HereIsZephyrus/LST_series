@@ -38,7 +38,7 @@ def add_process(process):
             while (file_is_occupied(process_list_file_name)):
                 time.sleep(1)
             with open(process_list_file_name, 'a') as f:
-                f.write(f'{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}-{process.pid}:{process.name}\n')
+                f.write(f'{datetime.now().strftime("%Y-%m-%d-%H-%M-%S")}-{process.pid}:{process.name}\n')
     except Exception as e:
         logging.error(f"error to add process: {e}")
         raise e
