@@ -48,8 +48,6 @@ def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
         index += 1
         print(f'Processing city id: {index}')
         city_name = city_boundary['properties']['市名']
-        if (index <= 2 or city_name in ['南昌市', '武汉市', '长沙市']):
-            continue
         city_name = city_boundary['properties']['市名']
         city_code = city_boundary['properties']['市代码']
         city_geometry = ee.Geometry(city_boundary['geometry'])
