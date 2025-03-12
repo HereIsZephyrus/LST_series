@@ -59,7 +59,7 @@ def get_folder_id_by_name(drive, folder_name, parent_id='root'):
     return None
 
 def download_and_clean(drive,folder_id, cloud_file_name, save_path):
-    cloud_file_name = cloud_file_name + '.tif'
+    cloud_file_name = cloud_file_name
     os.makedirs(save_path, exist_ok=True)
     
     file_list = drive.ListFile({

@@ -152,7 +152,6 @@ def monitor_export_task(gauth,task,file_name,drive,folder_name,save_path):
     if is_success:
         time.sleep(20) # wait for the last iamge to be created
         folder_id = get_folder_id(drive,folder_name)
-        print(f"folder_id: {folder_id}")
         try:
             download_and_clean(drive, folder_id, file_name, save_path)
             monitor.remove_process(file_name)

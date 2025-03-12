@@ -37,8 +37,12 @@ def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
         gauth.LoadCredentialsFile(os.getenv('CREDENTIALS_FILE_PATH'))
         if (gauth.credentials is None):
             gauth.LocalWebserverAuth()
-        drive = GoogleDrive(gauth)
         gauth.Refresh()
+        #check permissions
+        drive = GoogleDrive(gauth)
+        all_files = drive.ListFile({'q': "trashed=false"}).GetList()
+        print(len(all_files))
+
         logging.info(f"token current expires in: {gauth.credentials.token_expiry}")
         if gauth.credentials.refresh_token is None:
             print('refresh token is None')

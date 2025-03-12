@@ -49,11 +49,11 @@ def remove_process(process_name):
         with Lock():
             while (file_is_occupied(process_list_file_name)):
                 time.sleep(1)
-        with open(process_list_file_name, 'r') as f:
-            process_list = f.readlines()
-        process_list = [line for line in process_list if line.split(':')[1].strip() != process_name]
-        with open(process_list_file_name, 'w') as f:
-            f.writelines(process_list)
+            with open(process_list_file_name, 'r') as f:
+                process_list = f.readlines()
+            process_list = [line for line in process_list if line.split(':')[1].strip() != process_name]
+            with open(process_list_file_name, 'w') as f:
+                f.writelines(process_list)
     except Exception as e:
         logging.error(f"error to remove process: {e}")
         raise e
