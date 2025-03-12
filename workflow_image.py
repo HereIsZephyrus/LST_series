@@ -59,7 +59,7 @@ def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
         if (city_name != check_city_name):
             logging.warning(f"City name mismatch: {city_name}, {check_city_name}")
             continue
-        year_list = range(2000,2025)
+        year_list = range(1984,2025)
         for year in year_list:
             month_list = range(1,13)
             if (to_drive):
@@ -77,6 +77,7 @@ def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
                     logging.info(f"{city_name} {year} exported months: {exported_months}")
             else:
                 with ThreadPoolExecutor(max_workers=9) as executor:
+
                     finish_states = [executor.submit(
                         create_lst_image, city_name = city_name, 
                         year = year,month = month,
@@ -85,12 +86,14 @@ def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
                     ) for month in month_list]
                     exported_months = [month for month in as_completed(finish_states) if month is not None]
                     logging.info(f"{city_name} {year} exported months: {exported_months}")
+    print("All done. >_<")
 
 def __main__():
     load_dotenv()
     SAVE_PATH = os.getenv('IMAGE_SAVE_PATH')
     project_name = os.getenv('PROJECT_NAME')
     ee.Initialize(project=project_name)
+
     folder_name = 'landsat_lst_timeseries'
     init_record_file()
 
