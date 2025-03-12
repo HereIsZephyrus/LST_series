@@ -19,7 +19,10 @@ logging.getLogger('ee').setLevel(logging.WARNING)
 
 def init_record_file():
     record_file_path = os.getenv('RECORD_FILE_PATH') # csv
+    monitor_file_path = os.getenv('PROCESS_MONITOR_FILE_PATH')
     header = ['city', 'year', 'month', 'toa_image_porpotion', 'sr_image_porpotion', 'toa_cloud_ratio', 'sr_cloud_ratio']
+    with open(monitor_file_path, 'w', newline='') as f:
+        pass
     if (not os.path.exists(record_file_path)):
         with open(record_file_path, 'w', newline='') as f:
             writer = csv.writer(f)
@@ -45,7 +48,7 @@ def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
         index += 1
         print(f'Processing city id: {index}')
         city_name = city_boundary['properties']['市名']
-        if (index < 2 or city_name in ['南昌市', '武汉市', '长沙市']):
+        if (index <= 2 or city_name in ['南昌市', '武汉市', '长沙市']):
             continue
         city_name = city_boundary['properties']['市名']
         city_code = city_boundary['properties']['市代码']
@@ -62,7 +65,7 @@ def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
         for year in year_list:
             month_list = range(1,13)
             if (to_drive):
-                with ThreadPoolExecutor(max_workers=9) as executor:
+                with ThreadPoolExecutor(max_workers=5) as executor:
                     task_states = [executor.submit(
                         export_lst_image, 
                         gauth = gauth,

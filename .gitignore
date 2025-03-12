@@ -1,5 +1,6 @@
 client_secrets.json
 credentials.json
+process_monitor.txt
 *.html
 .env
 convert_js_to_python.py
