@@ -64,5 +64,4 @@ def check_and_refresh_token(gauth):
     delta_time = (gauth.credentials.token_expiry + timedelta(hours=8) - datetime.now()).total_seconds() # adjust for UTC+8
     if delta_time < 300:
         gauth.Refresh()
-        gauth.SaveCredentialsFile(os.getenv('CREDENTIALS_FILE_PATH'))
         logging.info(f"token current expires in: {gauth.credentials.token_expiry}")
