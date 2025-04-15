@@ -54,8 +54,6 @@ def create_lst_image_timeseries(folder_name,save_path,to_drive = True):
         city_name = city_boundary['properties']['市名']
         city_name = city_boundary['properties']['市名']
         city_code = city_boundary['properties']['市代码']
-        if (index <= 2 or city_name in ['南昌市','长沙市','武汉市']):
-            continue
         city_geometry = ee.Geometry(city_boundary['geometry'])
         logging.info(f"{city_name}'s administrative city area: {city_geometry.area().getInfo()}")
         asset_name = f'urban_{city_code}'
@@ -103,7 +101,7 @@ def __main__():
     folder_name = 'landsat_lst_timeseries'
     init_record_file()
 
-    create_lst_image_timeseries(folder_name,SAVE_PATH,True)
+    create_lst_image_timeseries(folder_name,SAVE_PATH,False)
 
 if __name__ == '__main__':
     __main__()
