@@ -1,19 +1,21 @@
 import pandas as pd
 import os
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import PatternFill,Font
+from dotenv import load_dotenv
+import ee
 
 def date_line(year):
     month = list(range(1, 13))
     return [year] + month
 
-def parse_record(file_path):
+def parse_record(file_path, start_year=1985, end_year=2024):
     file_dir = os.path.dirname(file_path)
     df = pd.read_csv(file_path)
     df = df.sort_values(by=['city', 'year', 'month'])
     city_list = df['city'].unique()
 
-    total_year = range(1986, 2024)
+    total_year = range(start_year, end_year+1)
     cloud_high_color = Font(color='FF0000')
     cloud_median_color = Font(color='0000FF')
     cloud_low_color = PatternFill(start_color='00FF00', end_color='00FF00', fill_type='solid') # green for low cloud
@@ -62,3 +64,55 @@ def parse_record(file_path):
                     f.write(','.join(map(str, row_line)) + '\n')
                 current_row += 5  # 每年的数据占用5行（1行年份+4行属性）
     note_city.save(os.path.join(file_dir, 'city_quality_records.xlsx'))
+
+def get_geo_boundary():
+    load_dotenv()
+    project_name = os.getenv('PROJECT_NAME')
+    ee.Initialize(project=project_name)
+
+    asset_path = 'projects/ee-channingtong/assets/'
+    total_boundary = ee.FeatureCollection(asset_path + 'YZBboundary')
+    geo_boundary_dict = {}
+    for city_boundary in total_boundary.getInfo()['features']:
+        city_name = city_boundary['properties']['市名']
+        city_outbound = ee.Geometry(city_boundary['geometry']).bounds().getInfo()
+        geo_boundary_dict[city_name] = city_outbound
+
+    return geo_boundary_dict
+
+def reverse_parse_record(tag_file_path, raw_file_path, start_year=1985, end_year=2024):
+    workbook = load_workbook(tag_file_path)
+    year_list = list(range(start_year, end_year+1))
+    month_list = list(range(1, 13))
+    valid_records = []
+    for sheet_name in workbook.sheetnames:
+        sheet = workbook[sheet_name]
+        for year in year_list:
+            row = 1 + (year - start_year) * 5
+            for month in month_list:
+                cell = sheet.cell(row=row, column=month+1)
+                if cell.fill.start_color.index != "00000000":
+                    valid_records.append((sheet_name,year, month))
+
+    raw_data = pd.read_csv(raw_file_path)
+    geo_boundary_dict = get_geo_boundary()
+
+    output_df = pd.DataFrame(columns=['city', 'year', 'month', 'day', 'geometry'])
+    for record in valid_records:
+        str_string = f"{record[0]},{record[1]},{record[2]}"
+        for row in raw_data.iterrows():
+            row_data = row[1]
+            identify = f"{row_data['city']},{row_data['year']},{row_data['month']}"
+            if str_string == identify:
+                output_df.loc[len(output_df)] = {
+                    'city': row_data['city'],
+                    'year': row_data['year'],
+                    'month': row_data['month'],
+                    'day': row_data['day'],
+                    'geometry': geo_boundary_dict[row_data['city']]
+                }
+                print(f"added {record[0]},{record[1]},{record[2]}")
+                break
+    # output as json file using pandas
+    output_df.to_json('remote_sensing_record.json', orient='records', lines=True, force_ascii=False)
+    return True
